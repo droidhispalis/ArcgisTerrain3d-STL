@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<module>
+  <name>arcgisterrain3d</name>
+  <displayName>Terrain  3D (Basado en ArcGIS)</displayName>
+  <version>1.0.0</version>
+  <description>Módulo para mostrar un mapa global 3D con ArcGIS, selección de terreno y vista previa de malla. Y poder añadir al carrito la malla definido los formatos en el panel</description>
+  <author>DroidHispalis 3D / droidhispalis@gmail.com</author>
+  <tab>front_office_features</tab>
+  <is_configurable>1</is_configurable>
+</module>

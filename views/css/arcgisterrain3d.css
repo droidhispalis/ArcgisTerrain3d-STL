@@ -1,0 +1,191 @@
+﻿/* Layout principal */
+.arcgis-terrain3d-page {
+    padding: 0;
+    margin: 0;
+}
+
+.arcgis-terrain3d-layout {
+    display: flex;
+    height: calc(100vh - 150px);
+    min-height: 600px;
+    gap: 0;
+}
+
+.arcgis-terrain3d-map-column {
+    flex: 0 0 60%;
+    position: relative;
+}
+
+.arcgis-terrain3d-container {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+}
+
+.arcgis-terrain3d-panel-column {
+    flex: 0 0 40%;
+    background: #f8f9fa;
+    border-left: 1px solid #dee2e6;
+    overflow-y: auto;
+}
+
+.arcgis-terrain3d-panel {
+    padding: 20px;
+}
+
+.arcgis-terrain3d-panel h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    color: #333;
+}
+
+/* Secciones del panel */
+.panel-section {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.panel-section:last-child {
+    border-bottom: none;
+}
+
+.panel-section label {
+    display: block;
+    margin-bottom: 8px;
+    color: #495057;
+    font-size: 0.95rem;
+}
+
+.panel-section .form-control {
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+.instructions-text {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* Panel de administrador */
+.admin-section {
+    background: #fff3cd;
+    padding: 15px;
+    border-radius: 4px;
+    border: 1px solid #ffc107;
+}
+
+.admin-loader {
+    display: flex;
+    gap: 8px;
+}
+
+.admin-loader input {
+    flex: 1;
+}
+
+/* Botones de acción */
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.action-buttons .btn {
+    margin: 0;
+}
+
+/* Estado y límites */
+.status-text {
+    display: block;
+    color: #28a745;
+    font-weight: 500;
+    min-height: 20px;
+}
+
+.limits-section {
+    background: #e9ecef;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+.limits-section small {
+    color: #495057;
+    line-height: 1.6;
+}
+
+.arcgis-terrain3d-loading {
+    padding: 20px;
+    font-size: 0.9rem;
+    color: #555;
+    text-align: center;
+}
+
+/* Modal de vista previa */
+.arcgis-terrain3d-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+}
+
+.arcgis-terrain3d-modal.is-open {
+    display: block;
+}
+
+.arcgis-terrain3d-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.arcgis-terrain3d-modal-dialog {
+    position: relative;
+    max-width: 900px;
+    width: 95%;
+    height: 80%;
+    margin: 40px auto;
+    background: #fff;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.arcgis-terrain3d-modal-close {
+    position: absolute;
+    right: 10px;
+    top: 8px;
+    border: none;
+    background: transparent;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.arcgis-terrain3d-preview {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    overflow: hidden;
+    position: relative;
+}
+
+.arcgis-terrain3d-preview canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+
+.arcgis-terrain3d-modal-hint {
+    font-size: 0.85rem;
+    color: #666;
+}
