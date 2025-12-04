@@ -46,6 +46,15 @@ class Arcgisterrain3d extends Module
     }
 
     /**
+     * Hook para añadir recursos en el header
+     */
+    public function hookDisplayHeader()
+    {
+        // Este hook está registrado pero no requiere implementación específica
+        // Los CSS y JS se registran en el controlador view.php
+    }
+
+    /**
      * Hook que se ejecuta cuando se confirma un pedido
      */
     public function hookActionValidateOrder($params)
@@ -169,6 +178,14 @@ class Arcgisterrain3d extends Module
 
             $output .= $this->displayConfirmation($this->l('Configuración actualizada.'));
         }
+
+        // Mostrar enlace al módulo frontend
+        $moduleLink = Context::getContext()->link->getModuleLink('arcgisterrain3d', 'view');
+        $output .= '<div class="alert alert-info">';
+        $output .= '<p><strong>' . $this->l('URL del módulo en el frontend:') . '</strong></p>';
+        $output .= '<p><a href="' . $moduleLink . '" target="_blank">' . $moduleLink . '</a></p>';
+        $output .= '<p><em>' . $this->l('Si el enlace no funciona, intenta limpiar la caché en: Parámetros avanzados > Rendimiento > Limpiar caché') . '</em></p>';
+        $output .= '</div>';
 
         return $output . $this->renderForm();
     }
