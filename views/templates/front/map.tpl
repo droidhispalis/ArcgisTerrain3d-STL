@@ -165,21 +165,9 @@
 </script>
 
 <!-- Three.js y controles locales -->
-<script>
-    (function() {
-        var baseUrl = window.location.origin + '/';
-        var scripts = [
-            'modules/arcgisterrain3d/views/js/vendor/three.min.js',
-            'modules/arcgisterrain3d/views/js/vendor/OrbitControls.js',
-            'modules/arcgisterrain3d/views/js/vendor/TrackballControls.js'
-        ];
-        scripts.forEach(function(src) {
-            var script = document.createElement('script');
-            script.src = baseUrl + src;
-            document.head.appendChild(script);
-        });
-    })();
-</script>
+<script src="../../../modules/arcgisterrain3d/views/js/vendor/three.min.js"></script>
+<script src="../../../modules/arcgisterrain3d/views/js/vendor/OrbitControls.js"></script>
+<script src="../../../modules/arcgisterrain3d/views/js/vendor/TrackballControls.js"></script>
 
 <!-- Restaurar AMD -->
 <script>
