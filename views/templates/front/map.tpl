@@ -165,9 +165,9 @@
 </script>
 
 <!-- Three.js y controles locales -->
-<script src="modules/arcgisterrain3d/views/js/vendor/three.min.js"></script>
-<script src="modules/arcgisterrain3d/views/js/vendor/OrbitControls.js"></script>
-<script src="modules/arcgisterrain3d/views/js/vendor/TrackballControls.js"></script>
+<script src="{$urls.shop_url}modules/arcgisterrain3d/views/js/vendor/three.min.js"></script>
+<script src="{$urls.shop_url}modules/arcgisterrain3d/views/js/vendor/OrbitControls.js"></script>
+<script src="{$urls.shop_url}modules/arcgisterrain3d/views/js/vendor/TrackballControls.js"></script>
 
 <!-- Restaurar AMD -->
 <script>
