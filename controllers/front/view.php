@@ -3,6 +3,13 @@
 class Arcgisterrain3dViewModuleFrontController extends ModuleFrontController
 {
     public $ssl = true;
+    public $display_column_left = false;
+    public $display_column_right = false;
+
+    public function init()
+    {
+        parent::init();
+    }
 
     public function initContent()
     {
@@ -35,22 +42,37 @@ class Arcgisterrain3dViewModuleFrontController extends ModuleFrontController
         // Obtener productos de la categoría configurada
         $categoryId = (int)Configuration::get(Arcgisterrain3d::CONF_PRODUCT_CATEGORY);
         $products = array();
+        $debugInfo = array();
+        
+        $debugInfo['category_id'] = $categoryId;
         
         if ($categoryId > 0) {
             $category = new Category($categoryId, $this->context->language->id);
+            $debugInfo['category_loaded'] = Validate::isLoadedObject($category);
+            
             if (Validate::isLoadedObject($category)) {
-                $productsObj = $category->getProducts(
-                    $this->context->language->id,
-                    1,
-                    1000,
-                    'position',
-                    'ASC',
-                    false,
-                    true
-                );
+                $debugInfo['category_name'] = $category->name;
                 
-                foreach ($productsObj as $prod) {
-                    $product = new Product($prod['id_product'], false, $this->context->language->id);
+                // Usar consulta SQL directa para obtener productos de la categoría
+                $sql = 'SELECT cp.`id_product`
+                        FROM `' . _DB_PREFIX_ . 'category_product` cp
+                        INNER JOIN `' . _DB_PREFIX_ . 'product` p ON (p.`id_product` = cp.`id_product`)
+                        INNER JOIN `' . _DB_PREFIX_ . 'product_shop` ps ON (ps.`id_product` = p.`id_product` AND ps.`id_shop` = ' . (int)$this->context->shop->id . ')
+                        WHERE cp.`id_category` = ' . (int)$categoryId . '
+                        AND ps.`active` = 1
+                        AND ps.`visibility` IN ("both", "catalog", "search")
+                        ORDER BY cp.`position` ASC';
+                
+                $productIds = Db::getInstance()->executeS($sql);
+                
+                if (!is_array($productIds)) {
+                    $productIds = array();
+                }
+                
+                $debugInfo['products_found'] = count($productIds);
+                
+                foreach ($productIds as $row) {
+                    $product = new Product($row['id_product'], false, $this->context->language->id);
                     if (Validate::isLoadedObject($product) && $product->active) {
                         $products[] = array(
                             'id_product' => $product->id,
@@ -62,6 +84,8 @@ class Arcgisterrain3dViewModuleFrontController extends ModuleFrontController
                         );
                     }
                 }
+                
+                $debugInfo['active_products'] = count($products);
             }
         }
 
@@ -74,6 +98,7 @@ class Arcgisterrain3dViewModuleFrontController extends ModuleFrontController
             'arcgis_terrain3d_max_area_km2'      => (float)Configuration::get(Arcgisterrain3d::CONF_MAX_AREA_KM2),
             'is_admin'                           => $isAdmin,
             'available_products'                 => $products,
+            'debug_info'                         => $debugInfo,
         ));
 
         $this->setTemplate('module:arcgisterrain3d/views/templates/front/map.tpl');

@@ -44,6 +44,27 @@
                         {/foreach}
                     </select>
                 </div>
+                {else}
+                <div class="panel-section">
+                    <div class="alert alert-warning">
+                        <strong>{l s='No hay productos disponibles' mod='arcgisterrain3d'}</strong><br>
+                        {if isset($debug_info)}
+                            <small>
+                                Categoría ID: {$debug_info.category_id|default:'No configurada'}<br>
+                                {if isset($debug_info.category_name)}
+                                    Categoría: {$debug_info.category_name}<br>
+                                {/if}
+                                {if isset($debug_info.products_found)}
+                                    Productos encontrados: {$debug_info.products_found}<br>
+                                {/if}
+                                {if isset($debug_info.active_products)}
+                                    Productos activos: {$debug_info.active_products}<br>
+                                {/if}
+                            </small>
+                        {/if}
+                        <em>{l s='Por favor, configura la categoría de productos en el backoffice del módulo y asegúrate de que la categoría tiene productos activos.' mod='arcgisterrain3d'}</em>
+                    </div>
+                </div>
                 {/if}
 
                 {* Instrucciones *}
