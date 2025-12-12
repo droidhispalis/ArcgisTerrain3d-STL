@@ -31,6 +31,31 @@ class Arcgisterrain3d extends Module
 
     public function install()
     {
+        // Crear tabla para datos del terreno
+        $sql = "CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "arc3d_terrain_data` (
+            `id_terrain` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `id_cart` INT(11) UNSIGNED NOT NULL,
+            `id_order` INT(11) UNSIGNED DEFAULT NULL,
+            `id_product` INT(11) UNSIGNED NOT NULL,
+            `product_name` VARCHAR(255) DEFAULT NULL,
+            `latitude` DECIMAL(10,7) NOT NULL,
+            `longitude` DECIMAL(10,7) NOT NULL,
+            `area_km2` DECIMAL(10,2) NOT NULL,
+            `shape_type` VARCHAR(50) DEFAULT NULL,
+            `file_size_mb` DECIMAL(10,2) DEFAULT NULL,
+            `fingerprint` VARCHAR(255) DEFAULT NULL,
+            `geometry_json` MEDIUMTEXT DEFAULT NULL,
+            `date_add` DATETIME NOT NULL,
+            PRIMARY KEY (`id_terrain`),
+            KEY `id_cart` (`id_cart`),
+            KEY `id_order` (`id_order`),
+            KEY `fingerprint` (`fingerprint`)
+        ) ENGINE=" . _MYSQL_ENGINE_ . " DEFAULT CHARSET=utf8mb4";
+        
+        if (!Db::getInstance()->execute($sql)) {
+            return false;
+        }
+        
         return parent::install()
             && $this->registerHook('displayHeader')
             && $this->registerHook('actionValidateOrder')
@@ -142,6 +167,10 @@ class Arcgisterrain3d extends Module
 
     public function uninstall()
     {
+        // Eliminar tabla de datos del terreno
+        $sql = "DROP TABLE IF EXISTS `" . _DB_PREFIX_ . "arc3d_terrain_data`";
+        Db::getInstance()->execute($sql);
+        
         return Configuration::deleteByName(self::CONF_API_KEY)
             && Configuration::deleteByName(self::CONF_WIDTH)
             && Configuration::deleteByName(self::CONF_HEIGHT)

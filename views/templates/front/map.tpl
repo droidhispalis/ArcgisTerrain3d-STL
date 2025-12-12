@@ -1,4 +1,4 @@
-{* modules/arcgisterrain3d/views/templates/front/map.tpl *}
+{* modules/arcgisterrain3d/views/templates/front/map.tpl - v2.0.1 *}
 {extends file='page.tpl'}
 
 {block name='page_title'}
@@ -78,14 +78,16 @@
                 <div class="panel-section admin-section">
                     <label><strong>{l s='Admin: Cargar pedido' mod='arcgisterrain3d'}</strong></label>
                     <div class="admin-loader">
-                        <input type="number" 
+                        <input type="text" 
                                id="arcgis-terrain3d-order-id" 
                                class="form-control" 
-                               placeholder="{l s='Nº pedido' mod='arcgisterrain3d'}">
+                               placeholder="{l s='Referencia o ID pedido' mod='arcgisterrain3d'}"
+                               maxlength="50">
                         <button id="arcgis-terrain3d-load-order" class="btn btn-info btn-sm">
                             {l s='Cargar' mod='arcgisterrain3d'}
                         </button>
                     </div>
+                    <small class="text-muted">{l s='Ej: ZGSTEXUNV o ID numérico' mod='arcgisterrain3d'}</small>
                 </div>
                 {/if}
 
@@ -149,10 +151,12 @@
     window.ARC3D_MAX_FACES_STL     = {$arcgis_terrain3d_max_faces_stl|intval};
     window.ARC3D_MAX_FACES_PREVIEW = {$arcgis_terrain3d_max_faces_preview|intval};
     window.ARC3D_MAX_AREA_KM2      = {$arcgis_terrain3d_max_area_km2|floatval};
-    window.ARC3D_AJAX_URL          = '{$link->getModuleLink("arcgisterrain3d", "savemesh", [], true)|escape:"javascript":"UTF-8"}';
+    window.ARC3D_AJAX_URL          = '/modules/arcgisterrain3d/ajax_cart.php';
+    window.ARC3D_LOADORDER_URL     = '/modules/arcgisterrain3d/ajax_loadorder.php';
     window.ARC3D_IS_LOGGED         = {if $customer.is_logged}true{else}false{/if};
     window.ARC3D_IS_ADMIN          = {if isset($is_admin) && $is_admin}true{else}false{/if};
-    console.log('[ArcGIS Terrain3D] Usuario logueado:', window.ARC3D_IS_LOGGED, 'Es admin:', window.ARC3D_IS_ADMIN);
+    console.log('[ArcGIS Terrain3D] AJAX URL:', window.ARC3D_AJAX_URL);
+    console.log('[ArcGIS Terrain3D] LoadOrder URL:', window.ARC3D_LOADORDER_URL);
 </script>
 
 <!-- ArcGIS JS API -->
@@ -183,9 +187,12 @@
         "esri/views/SceneView",
         "esri/layers/GraphicsLayer",
         "esri/Graphic",
+        "esri/geometry/Polygon",
+        "esri/geometry/Point",
         "esri/widgets/Sketch",
-        "esri/geometry/support/meshUtils"
-    ], function (esriConfig, Map, SceneView, GraphicsLayer, Graphic, Sketch, meshUtils) {
+        "esri/geometry/support/meshUtils",
+        "esri/geometry/support/webMercatorUtils"
+    ], function (esriConfig, Map, SceneView, GraphicsLayer, Graphic, Polygon, Point, Sketch, meshUtils, webMercatorUtils) {
 
         console.log('[ArcGIS Terrain3D v14] require() callback ejecutado');
 
@@ -640,7 +647,20 @@
             }
 
             var extent = selectionGeometry.extent;
+            
+            console.log('[ArcGIS Terrain3D] Extent calculado:', extent);
+            console.log('[ArcGIS Terrain3D] Extent valores:', {
+                xmin: extent ? extent.xmin : 'undefined',
+                ymin: extent ? extent.ymin : 'undefined', 
+                xmax: extent ? extent.xmax : 'undefined',
+                ymax: extent ? extent.ymax : 'undefined',
+                width: extent ? extent.width : 'undefined',
+                height: extent ? extent.height : 'undefined'
+            });
+            
             if (!extent ||
+                !isFinite(extent.xmin) || !isFinite(extent.ymin) ||
+                !isFinite(extent.xmax) || !isFinite(extent.ymax) ||
                 !isFinite(extent.width) || !isFinite(extent.height) ||
                 extent.width <= 0 || extent.height <= 0) {
                 console.warn('[ArcGIS Terrain3D v14] Extent inválido', extent);
@@ -1073,11 +1093,16 @@
                     
                     // Calcular coordenadas centrales y área
                     var extent = selectionGeometry.extent;
-                    var centerLat = (extent.ymin + extent.ymax) / 2;
-                    var centerLon = (extent.xmin + extent.xmax) / 2;
+                    var centerX = (extent.xmin + extent.xmax) / 2;  // Web Mercator X (metros)
+                    var centerY = (extent.ymin + extent.ymax) / 2;  // Web Mercator Y (metros)
                     var widthKm = extent.width / 1000;
                     var heightKm = extent.height / 1000;
                     var areaKm2 = widthKm * heightKm;
+                    
+                    // Convertir centro a lat/lon para almacenamiento
+                    var centerPoint = webMercatorUtils.xyToLngLat(centerX, centerY);
+                    var centerLon = centerPoint[0];
+                    var centerLat = centerPoint[1];
 
                     // Determinar tipo de forma
                     var shapeType = 'rectangle';
@@ -1141,13 +1166,38 @@
                         alert('Error de red. Por favor, inténtalo de nuevo.');
                     };
 
+                    // Serializar geometry_json para guardarlo en la BD
+                    var geometryJsonString = '';
+                    try {
+                        var geomToSave = {
+                            type: shapeType,
+                            spatialReference: selectionGeometry.spatialReference || { wkid: 3857 }
+                        };
+                        
+                        if (shapeType === 'circle') {
+                            // Para círculos, guardar centro y radio en Web Mercator (metros)
+                            geomToSave.centerX = centerX;  // metros
+                            geomToSave.centerY = centerY;  // metros
+                            geomToSave.radius = Math.sqrt(areaKm2 * 1000000 / Math.PI); // radio en metros
+                        } else {
+                            // Para polígonos, guardar los rings directamente (ya están en Web Mercator)
+                            geomToSave.rings = selectionGeometry.rings;
+                        }
+                        
+                        geometryJsonString = JSON.stringify(geomToSave);
+                        console.log('[ArcGIS Terrain3D] geometry_json a guardar:', geometryJsonString.substring(0, 200));
+                    } catch (e) {
+                        console.error('[ArcGIS Terrain3D] Error serializando geometría:', e);
+                    }
+
                     var params = 'ajax=1' +
                         '&product_id=' + productId +
                         '&latitude=' + centerLat +
                         '&longitude=' + centerLon +
                         '&area_km2=' + areaKm2.toFixed(2) +
                         '&shape_type=' + encodeURIComponent(shapeType) +
-                        '&file_size_mb=' + estimatedSizeMB;
+                        '&file_size_mb=' + estimatedSizeMB +
+                        '&geometry_json=' + encodeURIComponent(geometryJsonString);
 
                     xhr.send(params);
 
@@ -1163,52 +1213,119 @@
         var loadOrderButton = document.getElementById('arcgis-terrain3d-load-order');
         if (loadOrderButton) {
             loadOrderButton.addEventListener('click', function() {
+                console.log('[ArcGIS Terrain3D] ========== BOTON CARGAR PEDIDO CLICKEADO ==========');
                 var orderIdInput = document.getElementById('arcgis-terrain3d-order-id');
-                var orderId = parseInt(orderIdInput.value);
+                var orderInput = orderIdInput.value.trim();
+                console.log('[ArcGIS Terrain3D] Input de pedido:', orderInput);
                 
-                if (!orderId || orderId <= 0) {
-                    alert('Por favor, introduce un número de pedido válido.');
+                if (!orderInput) {
+                    alert('Por favor, introduce una referencia o ID de pedido.');
                     return;
                 }
 
-                setStatus('Cargando pedido #' + orderId + '...');
+                setStatus('Cargando pedido: ' + orderInput + '...');
                 
-                // Llamar al servidor para obtener los datos del pedido
                 var xhr = new XMLHttpRequest();
-                xhr.open('POST', window.ARC3D_AJAX_URL.replace('savemesh', 'loadorder'), true);
+                xhr.open('POST', window.ARC3D_LOADORDER_URL, true);
                 xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
                 
                 xhr.onload = function() {
+                    // Limpiar respuesta de posible BOM o espacios
+                    var cleanText = xhr.responseText.replace(/^\uFEFF/, '').trim();
+                    
                     try {
-                        var response = JSON.parse(xhr.responseText);
-                        if (response.success) {
+                        var response = JSON.parse(cleanText);
+                        if (response.success && response.data) {
                             var data = response.data;
-                            setStatus('Pedido #' + orderId + ' cargado. Generando terreno...');
+                            setStatus('Pedido cargado: ' + data.product_name);
                             
-                            // Crear geometría basada en las coordenadas guardadas
-                            var centerLat = parseFloat(data.latitude);
-                            var centerLon = parseFloat(data.longitude);
-                            var areaKm2 = parseFloat(data.area_km2);
+                            // Seleccionar automáticamente el producto
+                            var productSelect = document.getElementById('arcgis-terrain3d-product-select');
+                            if (productSelect && data.product_id) {
+                                productSelect.value = data.product_id;
+                                console.log('[ArcGIS Terrain3D] Producto seleccionado:', data.product_id);
+                            }
                             
-                            // Calcular dimensiones aproximadas (asumiendo cuadrado)
-                            var sideKm = Math.sqrt(areaKm2);
-                            var sideDegrees = sideKm / 111; // Aproximación: 1 grado ≈ 111 km
+                            // Reconstruir geometría desde geometry_json si existe
+                            if (data.geometry_json) {
+                                try {
+                                    // geometry_json ya viene como objeto, no necesita JSON.parse()
+                                    var geomData = data.geometry_json;
+                                    console.log('[ArcGIS Terrain3D] Geometry JSON parseado:', geomData);
+                                    console.log('[ArcGIS Terrain3D] Tipo de geometría:', geomData.type);
+                                    
+                                    if (geomData.type === 'circle') {
+                                        console.log('[ArcGIS Terrain3D] Reconstruyendo círculo...');
+                                        console.log('[ArcGIS Terrain3D] Centro:', geomData.centerX, geomData.centerY);
+                                        console.log('[ArcGIS Terrain3D] Radio:', geomData.radius, 'metros');
+                                        
+                                        // Crear polígono circular aproximado con 64 puntos
+                                        var numPoints = 64;
+                                        var ring = [];
+                                        var radiusMeters = geomData.radius;
+                                        var centerX = geomData.centerX;
+                                        var centerY = geomData.centerY;
+                                        
+                                        for (var i = 0; i <= numPoints; i++) {
+                                            var angle = (i / numPoints) * 2 * Math.PI;
+                                            var dx = radiusMeters * Math.cos(angle);
+                                            var dy = radiusMeters * Math.sin(angle);
+                                            ring.push([centerX + dx, centerY + dy]);
+                                        }
+                                        
+                                        selectionGeometry = new Polygon({
+                                            rings: [ring],
+                                            spatialReference: geomData.spatialReference || { wkid: 3857 }
+                                        });
+                                        console.log('[ArcGIS Terrain3D] ✓ Círculo reconstruido con', numPoints, 'puntos, radio:', (radiusMeters/1000).toFixed(2), 'km');
+                                        
+                                    } else if (geomData.type === 'polygon' && geomData.rings) {
+                                        console.log('[ArcGIS Terrain3D] Reconstruyendo polígono...');
+                                        // Usar polígono directo
+                                        selectionGeometry = new Polygon({
+                                            rings: geomData.rings,
+                                            spatialReference: geomData.spatialReference || { wkid: 3857 }
+                                        });
+                                        console.log('[ArcGIS Terrain3D] ✓ Polígono reconstruido con', geomData.rings[0].length, 'puntos');
+                                    } else {
+                                        console.warn('[ArcGIS Terrain3D] Tipo de geometría desconocido:', geomData.type);
+                                    }
+                                    
+                                } catch (geomError) {
+                                    console.error('[ArcGIS Terrain3D] Error procesando geometry_json:', geomError);
+                                    console.error('[ArcGIS Terrain3D] geometry_json recibido:', data.geometry_json);
+                                }
+                            } else {
+                                console.warn('[ArcGIS Terrain3D] No hay geometry_json en la respuesta');
+                            }
                             
-                            // Crear polígono rectangular
-                            var rings = [[
-                                [centerLon - sideDegrees/2, centerLat - sideDegrees/2],
-                                [centerLon + sideDegrees/2, centerLat - sideDegrees/2],
-                                [centerLon + sideDegrees/2, centerLat + sideDegrees/2],
-                                [centerLon - sideDegrees/2, centerLat + sideDegrees/2],
-                                [centerLon - sideDegrees/2, centerLat - sideDegrees/2]
-                            ]];
+                            // Si no se pudo reconstruir desde geometry_json, crear desde coordenadas
+                            if (!selectionGeometry) {
+                                console.log('[ArcGIS Terrain3D] Fallback: Creando rectángulo desde coordenadas');
+
+                                var centerLat = parseFloat(data.latitude);
+                                var centerLon = parseFloat(data.longitude);
+                                var areaKm2 = parseFloat(data.area_km2);
+                                
+                                var sideKm = Math.sqrt(areaKm2);
+                                var sideDegrees = sideKm / 111;
+                                
+                                var rings = [[
+                                    [centerLon - sideDegrees/2, centerLat - sideDegrees/2],
+                                    [centerLon + sideDegrees/2, centerLat - sideDegrees/2],
+                                    [centerLon + sideDegrees/2, centerLat + sideDegrees/2],
+                                    [centerLon - sideDegrees/2, centerLat + sideDegrees/2],
+                                    [centerLon - sideDegrees/2, centerLat - sideDegrees/2]
+                                ]];
+                                
+                                selectionGeometry = new Polygon({
+                                    rings: rings,
+                                    spatialReference: { wkid: 4326 }
+                                });
+                                console.log('[ArcGIS Terrain3D] Rectángulo creado desde coordenadas');
+                            }
                             
-                            selectionGeometry = new Polygon({
-                                rings: rings,
-                                spatialReference: { wkid: 4326 }
-                            });
-                            
-                            // Añadir gráfico de selección al mapa
+                            // Dibujar en el mapa
                             graphicsLayer.removeAll();
                             var fillSymbol = {
                                 type: "simple-fill",
@@ -1225,35 +1342,41 @@
                             });
                             
                             graphicsLayer.add(graphic);
-                            
-                            // Centrar vista en la selección
                             view.goTo(selectionGeometry.extent.expand(1.5));
                             
-                            // Generar malla automáticamente
-                            setTimeout(function() {
-                                if (generateButton) {
-                                    generateButton.click();
-                                    setStatus('✓ Pedido #' + orderId + ' cargado. Generando malla...');
-                                    
-                                    // Después de generar, habilitar botón de exportar STL
-                                    setTimeout(function() {
-                                        if (exportButton) {
-                                            alert('Malla generada para pedido #' + orderId + '.\n\n' +
-                                                  'Producto: ' + data.product_name + '\n' +
-                                                  'Coordenadas: ' + centerLat.toFixed(4) + ', ' + centerLon.toFixed(4) + '\n' +
-                                                  'Área: ' + areaKm2.toFixed(2) + ' km²\n\n' +
-                                                  'Pulsa "Exportar modelo STL" para descargar el archivo.');
-                                        }
-                                    }, 2000);
-                                }
-                            }, 500);
+                            // IMPORTANTE: Establecer selectionRingXY para que la generación de malla funcione
+                            selectionRingXY = null;
+                            if (selectionGeometry &&
+                                selectionGeometry.type === "polygon" &&
+                                selectionGeometry.rings &&
+                                selectionGeometry.rings.length > 0) {
+                                selectionRingXY = selectionGeometry.rings[0].map(function (pt) {
+                                    return [pt[0], pt[1]]; // x, y
+                                });
+                                console.log('[ArcGIS Terrain3D] selectionRingXY establecido con', selectionRingXY.length, 'puntos');
+                            } else {
+                                console.warn('[ArcGIS Terrain3D] No se pudo establecer selectionRingXY');
+                            }
+                            
+                            // Habilitar botón generar
+                            if (generateButton) {
+                                generateButton.disabled = false;
+                                setStatus('✓ Pedido cargado. Pulsa "Generar malla 3D"');
+                                
+                                // Opcionalmente generar automáticamente
+                                setTimeout(function() {
+                                    if (confirm('¿Generar malla 3D automáticamente para el pedido?')) {
+                                        generateButton.click();
+                                    }
+                                }, 500);
+                            }
                             
                         } else {
-                            setStatus('Error: ' + response.error);
-                            alert('Error al cargar pedido: ' + response.error);
+                            setStatus('Error: ' + (response.error || 'Pedido no encontrado'));
+                            alert('Error: ' + (response.error || 'Pedido no encontrado'));
                         }
                     } catch (e) {
-                        console.error('[ArcGIS Terrain3D] Error parseando respuesta', e, xhr.responseText);
+                        console.error('[ArcGIS Terrain3D] Error parseando respuesta:', e, xhr.responseText);
                         setStatus('Error de comunicación');
                         alert('Error al procesar la respuesta del servidor');
                     }
@@ -1264,11 +1387,13 @@
                     alert('Error de red al cargar el pedido.');
                 };
                 
-                xhr.send('ajax=1&order_id=' + orderId);
+                console.log('[ArcGIS Terrain3D] Enviando petición a:', window.ARC3D_LOADORDER_URL);
+                console.log('[ArcGIS Terrain3D] Parámetros:', 'ajax=1&order_id=' + orderInput);
+                xhr.send('ajax=1&order_id=' + encodeURIComponent(orderInput));
             });
         }
 
-        console.log('[ArcGIS Terrain3D v14] Inicializado completamente');
+        console.log('[ArcGIS Terrain3D v2.0.1 - NUEVA VERSION CON LOGS] Inicializado completamente');
     });
 </script>
 

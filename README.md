@@ -10,8 +10,13 @@ Módulo para PrestaShop 1.7+ que permite a los clientes generar y comprar modelo
 - **Generación STL**: Conversión de datos geográficos a archivos STL imprimibles en 3D
 - **Sistema de Pago**: Los archivos solo se generan después de confirmar el pago
 - **Panel de Administración**: Carga de pedidos pagados para generar y descargar STL
+- **Carga por Referencia**: Búsqueda de pedidos por ID numérico o referencia alfanumérica (ej: "CSTELENEM")
+- **Geometría Exacta**: Reconstrucción perfecta de círculos, rectángulos y polígonos desde pedidos guardados
+- **Persistencia Completa**: Todo tipo de geometría (círculos, polígonos, rectángulos) se guarda en `geometry_json` con coordenadas Web Mercator
 - **Selección de Productos**: Sistema basado en categorías para diferentes precios/zonas
 - **Validación de Pedidos**: Control de acceso y verificación de estado de pago
+- **Herramientas de Dibujo**: Polígono, rectángulo y círculo con visualización en tiempo real
+- **Vista Previa 3D**: Visualización del terreno con Three.js antes de exportar
 
 ## 📋 Requisitos
 
@@ -158,6 +163,8 @@ El módulo crea automáticamente la tabla `arc3d_terrain_data`:
 | area_km2 | DECIMAL | Área en km² |
 | shape_type | VARCHAR | Tipo: rectangle/circle |
 | file_size_mb | DECIMAL | Tamaño estimado del STL |
+| fingerprint | VARCHAR(255) | Identificador único del pedido |
+| geometry_json | LONGTEXT | Geometría completa (círculo/polígono) |
 | date_add | DATETIME | Fecha de creación |
 
 ## 🔐 Seguridad
@@ -244,6 +251,33 @@ Las contribuciones son bienvenidas. Por favor:
 5. Abre un Pull Request
 
 ## 📝 Changelog
+
+### v2.0.1 (2025-12-12)
+- 🎯 **Sistema de carga de pedidos mejorado**
+  - Soporte para referencias alfanuméricas (ej: CSTELENEM, ZGSTEXUNV)
+  - Campo de entrada de texto con validación flexible
+  - Búsqueda inteligente por ID numérico o referencia
+- 🔄 **Reconstrucción exacta de geometría**
+  - Guardado completo de geometría en campo `geometry_json`
+  - Soporte para círculos y polígonos personalizados
+  - Reconstrucción de círculos con 64 puntos de precisión
+  - Preservación de sistema de referencia espacial (Web Mercator 3857)
+- ✅ **Generación de malla desde pedidos cargados**
+  - Variable `selectionRingXY` correctamente establecida al cargar
+  - Filtrado de caras de malla según geometría guardada
+  - Generación STL funcional desde datos históricos
+- 🐛 **Correcciones críticas**
+  - JSON doblemente escapado en base de datos (solucionado con stripslashes)
+  - Error de parseo en frontend (geometry_json ya viene como objeto)
+  - Geometría de fallback creaba rectángulos incorrectos
+- 📊 **Mejoras en base de datos**
+  - Campo `geometry_json` LONGTEXT para geometrías complejas
+  - Decodificación automática de JSON escapado
+  - Logs detallados para debugging
+- 🎨 **Interfaz de administración**
+  - Input acepta texto y números (maxlength: 50)
+  - Mensajes de consola mejorados para debugging
+  - Versión visible en logs: v2.0.1
 
 ### v1.0.0 (2025-12-04)
 - ✅ Implementación de rotación 3D libre con TrackballControls
